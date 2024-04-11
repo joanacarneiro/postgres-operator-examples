@@ -1,0 +1,53 @@
+# Assumptions --> each PostgresCluster will always have just one instance
+# Names of cluster and instance must follow below rule
+# - lowercase RFC 1123 subdomain must consist of lower case alphanumeric characters, '-' or '.', and must start and end with an alphanumeric character
+apiVersion: postgres-operator.crunchydata.com/v1beta1
+kind: PostgresCluster
+metadata:
+  name: pg-cluster # <%- clusterName %>
+spec:
+  # postgreSQL fixed version for latest v15. 
+  # This is the one matching 5.5.1-0 operator version. 
+  # This might need to be dynamic when we introduce patch feature
+  # if not specified a default image will be used
+  image: registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-15.6-0
+  postgresVersion: 15
+  users:
+  - name: joana
+    databases:
+      - test_db
+    options: "SUPERUSER"
+  instances:
+    - name: pg-cluster-instance # <%- instanceName %>
+      dataVolumeClaimSpec:
+        accessModes:
+          # Allows the volume to be mounted as read-write by a single node. 
+          # It ensures that only one pod (on one node) can read from and write to the volume at any given time
+          # We will not configure storage class because this will be provided by the VM that we are using.
+          - 'ReadWriteOnce'
+        resources:
+          requests:
+            storage: 20Gi #  <%- storage %>
+      resources:
+        requests:
+          memory: 2Gi #  <%- memory %>
+          cpu: 1 #  <%- number_of_cpus %>
+        limits:
+          memory: 2Gi # <%- memory_limit %>
+          cpu: 1 # <%- number_of_cpus_limit %>
+  backups:
+    pgbackrest:
+      # image of pgbackrest needs to later be changed to get from artifactory
+      image: registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.49-0
+      repos:
+        - name: repo1 # naming here should match '^repo[1-4]
+          volume:
+            volumeClaimSpec:
+              accessModes:
+                - 'ReadWriteOnce'
+              resources:
+                requests:
+                  # for now, backup&restore is not a feature we need to support for Alpha release
+                  # so this value can be fixed for 1GB.
+                  # later we will integrate with an object store solution
+                  storage: 1Gi
